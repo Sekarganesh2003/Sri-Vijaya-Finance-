@@ -1,6 +1,6 @@
 <!-- Base Container supporting Light / Dark mode themes -->
-<div [class.dark]="isDarkMode()" class="min-h-screen block select-none">
-  <div class="min-h-screen w-full bg-neutral-100 dark:bg-neutral-900 text-slate-800 dark:text-neutral-100 transition-colors duration-200">
+<div [class.dark]="isDarkMode()" class="min-h-[100dvh] block select-none overflow-hidden">
+  <div class="min-h-[100dvh] w-full bg-neutral-100 dark:bg-neutral-900 text-slate-800 dark:text-neutral-100 transition-colors duration-200 overflow-hidden">
     
     <!-- FLOATING TOAST NOTIFIER -->
     <div class="fixed bottom-5 right-5 z-50 flex flex-col gap-2.5 max-w-sm pointer-events-none">
@@ -19,7 +19,7 @@
 
     @if (!loginSuccess()) {
       <!-- 1. FULL VIEWPORT DOCKABLE ENTERPRISE LOGIN PORTAL -->
-      <div class="w-full min-h-screen flex flex-col justify-between items-center noise-bg text-slate-850 dark:text-neutral-100 overflow-y-auto">
+      <div class="w-full min-h-[100dvh] flex flex-col justify-between items-center noise-bg text-slate-850 dark:text-neutral-100 overflow-y-auto">
         <div class="w-full flex-1 flex flex-col justify-center items-center py-8 md:py-14 px-4">
           <div class="w-full max-w-[460px] flex flex-col items-center gap-2">
             
@@ -115,7 +115,7 @@
       </div>
     } @else {
       <!-- 2. MAIN BILINGUAL FINANCE ENTERPRISE DASHBOARD SUITE -->
-      <div class="flex h-screen overflow-hidden noise-bg relative">
+      <div class="flex h-[100dvh] overflow-hidden noise-bg relative">
         
         <!-- Backdrop for mobile menu drawer -->
         @if (isMobileMenuOpen()) {
@@ -4982,6 +4982,9 @@
                             </span>
                             <p class="text-[11px] text-neutral-500 dark:text-neutral-400 leading-normal font-sans">
                               APK மற்றும் கைபேசி பதிப்புகளில் (Mobile Android APK) தரவு ஒத்திசைவை இயக்க, உங்களது கிளவுட் சர்வர் முகவரியை (https://...) இங்கே குறிப்பிடவும்.
+                            </p>
+                            <p class="text-[10px] text-amber-600 dark:text-amber-400 font-bold uppercase tracking-wide">
+                              Host only. Do not paste /api/supabase paths or multiple endpoints.
                             </p>
                             <div class="space-y-3 font-sans">
                               <div class="flex gap-2">

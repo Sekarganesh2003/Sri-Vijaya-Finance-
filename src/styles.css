@@ -10,6 +10,20 @@
   --color-neutral-850: #222222;
 }
 
+html,
+body,
+app-root {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+}
+
+body {
+  overscroll-behavior: none;
+  -webkit-text-size-adjust: 100%;
+}
+
 /* Custom CSS noise and animations */
 .noise-bg {
   background-color: #F0F9FF;
@@ -64,5 +78,4 @@
     padding: 0 !important;
   }
 }
-
 

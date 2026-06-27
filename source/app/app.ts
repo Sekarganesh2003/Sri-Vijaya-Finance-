@@ -186,7 +186,7 @@ export interface InstallmentScheduleItem {
   standalone: true,
   imports: [ReactiveFormsModule, DecimalPipe, DatePipe],
   templateUrl: '../../src/app/app.html',
-  styleUrl: '../../src/app/app.css',
+  styleUrl: './app.css',
 })
 export class App {
   protected readonly Math = Math;
@@ -1328,11 +1328,8 @@ export class App {
       const savedDark = localStorage.getItem('sri_finance_dark_mode');
       if (savedDark === 'true') {
         this.isDarkMode.set(true);
-      } else if (savedDark === 'false') {
-        this.isDarkMode.set(false);
       } else {
-        const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-        this.isDarkMode.set(prefersDark);
+        this.isDarkMode.set(false);
       }
     }
 
@@ -1475,27 +1472,96 @@ export class App {
       localStorage.setItem('supabase_api_base_url', '');
     }
 
-    if (!environment.production && savedBaseUrl === 'https://sri-vijaya-finance.onrender.com') {
-      console.log(`[Configuration] Local dev preview mode: Clearing default production API URL from localStorage to route via local Express server.`);
-      savedBaseUrl = '';
-      localStorage.setItem('supabase_api_base_url', '');
+    let normalizedSavedBaseUrl = this.normalizeSupabaseApiBaseUrl(savedBaseUrl);
+    if (savedBaseUrl && !normalizedSavedBaseUrl) {
+      console.log(`[Configuration] Ignoring invalid Supabase API Base URL from localStorage: "${savedBaseUrl}"`);
+      this.addDiagnosticLog(`Ignored invalid stored API base URL: "${savedBaseUrl}"`);
     }
 
-    if (!savedBaseUrl) {
-      // Default to the production server URL as the secure proxy API gateway from environment configuration
-      savedBaseUrl = environment.apiUrl;
-      localStorage.setItem('supabase_api_base_url', savedBaseUrl);
-      console.log(`[Configuration] Pre-populated Supabase API base URL from environment: ${savedBaseUrl}`);
+    if (!normalizedSavedBaseUrl) {
+      normalizedSavedBaseUrl = this.getDefaultSupabaseApiBaseUrl(origin);
+      if (normalizedSavedBaseUrl) {
+        console.log(`[Configuration] Pre-populated Supabase API base URL from environment/default: ${normalizedSavedBaseUrl}`);
+        localStorage.setItem('supabase_api_base_url', normalizedSavedBaseUrl);
+      } else {
+        localStorage.removeItem('supabase_api_base_url');
+      }
+    } else {
+      localStorage.setItem('supabase_api_base_url', normalizedSavedBaseUrl);
     }
 
-    this.supabaseApiBaseUrl.set(savedBaseUrl);
-    this.addDiagnosticLog(`Supabase API Base URL initialized: "${savedBaseUrl}" (Mobile Native: ${isMobileWebview})`);
+    this.supabaseApiBaseUrl.set(normalizedSavedBaseUrl);
+    this.addDiagnosticLog(`Supabase API Base URL initialized: "${normalizedSavedBaseUrl}" (Mobile Native: ${isMobileWebview})`);
     this.addDiagnosticLog(`Active environment origin: ${origin}`);
+  }
+
+  private normalizeSupabaseApiBaseUrl(rawUrl: string): string {
+    const trimmed = rawUrl.trim();
+    if (!trimmed) return '';
+    if (/\s/.test(trimmed)) return '';
+    if (!trimmed.startsWith('https://')) return '';
+
+    try {
+      const parsed = new URL(trimmed);
+      if (parsed.protocol !== 'https:' || !parsed.host) return '';
+      return parsed.origin;
+    } catch {
+      return '';
+    }
+  }
+
+  private getDefaultSupabaseApiBaseUrl(origin: string): string {
+    const environmentBase = this.normalizeSupabaseApiBaseUrl(environment.apiUrl);
+    if (environmentBase) return environmentBase;
+
+    const host = (() => {
+      try {
+        return new URL(origin).hostname;
+      } catch {
+        return origin;
+      }
+    })();
+
+    const isLocalHost =
+      origin.startsWith('file://') ||
+      origin.startsWith('capacitor://') ||
+      origin.startsWith('ionic://') ||
+      host === 'localhost' ||
+      host === '127.0.0.1' ||
+      host === '0.0.0.0' ||
+      host.endsWith('.local');
+
+    return isLocalHost ? '' : 'https://sri-vijaya-finance.onrender.com';
+  }
+
+  private async parseJsonResponse<T>(res: Response, context: string): Promise<T> {
+    const contentType = (res.headers.get('content-type') || '').toLowerCase();
+    const bodyText = await res.text();
+    const trimmedBody = bodyText.trim();
+
+    if (!contentType.includes('application/json')) {
+      const preview = trimmedBody ? trimmedBody.replace(/\s+/g, ' ').slice(0, 160) : 'empty response body';
+      throw new Error(`${context} returned non-JSON response (${res.status} ${res.statusText}). Preview: ${preview}`);
+    }
+
+    if (!trimmedBody) {
+      throw new Error(`${context} returned an empty JSON response (${res.status} ${res.statusText}).`);
+    }
+
+    try {
+      return JSON.parse(trimmedBody) as T;
+    } catch {
+      throw new Error(`${context} returned invalid JSON (${res.status} ${res.statusText}).`);
+    }
   }
 
   // Resolves paths like /api/supabase/save to include full host if configured
   getApiUrl(path: string): string {
-    const base = this.supabaseApiBaseUrl().trim() || environment.apiUrl || '';
+    const browserOrigin = isPlatformBrowser(this.platformId) ? window.location.origin : '';
+    const base =
+      this.normalizeSupabaseApiBaseUrl(this.supabaseApiBaseUrl()) ||
+      this.normalizeSupabaseApiBaseUrl(environment.apiUrl) ||
+      (browserOrigin ? this.getDefaultSupabaseApiBaseUrl(browserOrigin) : '');
     if (!base) return path;
     const sanitizedBase = base.replace(/\/+$/, '');
     const sanitizedPath = path.startsWith('/') ? path : `/${path}`;
@@ -1505,6 +1571,19 @@ export class App {
   // Update and store custom API gateway base URL
   updateSupabaseApiBaseUrl(newUrl: string): void {
     if (!isPlatformBrowser(this.platformId)) return;
+    const normalizedUrl = this.normalizeSupabaseApiBaseUrl(newUrl);
+    if (!normalizedUrl) {
+      this.showToast('Please enter a valid https:// gateway host only.', 'danger');
+      this.addDiagnosticLog(`Rejected invalid API base URL: "${newUrl.trim() || 'EMPTY'}"`);
+      return;
+    }
+
+    this.supabaseApiBaseUrl.set(normalizedUrl);
+    localStorage.setItem('supabase_api_base_url', normalizedUrl);
+    this.showToast('à®…à®Ÿà®¿à®ªà¯à®ªà®Ÿà¯ˆ à®®à¯à®•à®µà®°à®¿ à®µà¯†à®±à¯à®±à®¿à®•à®°à®®à®¾à®• à®ªà¯à®¤à¯à®ªà¯à®ªà®¿à®•à¯à®•à®ªà¯à®ªà®Ÿà¯à®Ÿà®¤à¯! / API Base URL saved successfully!', 'success');
+    this.addDiagnosticLog(`API Base URL manually updated to: "${normalizedUrl}"`);
+    this.runSupabaseDiagnostics();
+    return;
     const url = newUrl.trim();
     this.supabaseApiBaseUrl.set(url);
     localStorage.setItem('supabase_api_base_url', url);
@@ -1568,7 +1647,7 @@ export class App {
         throw new Error(`HTTP Error Status: ${res.status} (${res.statusText})`);
       }
 
-      const result = await res.json();
+      const result = await this.parseJsonResponse<any>(res, 'Supabase diagnostics');
       this.diagnosticServerOk.set(true);
       this.addDiagnosticLog(`Express API server responded successfully in ${responseTime}ms (CORS: Checked-OK)`);
 
@@ -1677,7 +1756,7 @@ export class App {
           'Cache-Control': 'no-cache'
         }
       });
-      const result = await res.json();
+      const result = await this.parseJsonResponse<any>(res, 'Supabase cloud load');
       
       if (result && result.success && result.data && Object.keys(result.data).length > 0) {
         const state = result.data;
@@ -1769,7 +1848,7 @@ export class App {
         body: JSON.stringify(payload)
       });
       
-      const result = await res.json();
+      const result = await this.parseJsonResponse<any>(res, 'Supabase cloud save');
       
       if (result && result.success) {
         const now = new Date().toLocaleTimeString();

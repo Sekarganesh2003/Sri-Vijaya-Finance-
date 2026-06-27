@@ -1,0 +1,8 @@
+{
+  "name": "Remix: Finance Collection Management System",
+  "description": "Sri Finance Collection Management System login portal with validation and localized Tamil typography.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
